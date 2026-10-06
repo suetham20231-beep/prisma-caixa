@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#07010f" />
+  <title>Prisma</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root { --void:#07010f; --surface:#14081f; --ink:#f6f0ff; --muted:#b7a6d6; --line:#3a2458; --magenta:#ff2bd6; --acid:#e4ff4a; --cyan:#3dfff2; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--void); color: var(--ink); font-family: Outfit, sans-serif; }
+    button, input, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    button:disabled { opacity: .5; }
+    main { max-width: 28rem; margin: 0 auto; padding: 32px 16px 64px; }
+    .bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+    .wash { position: absolute; inset: -18%; background:
+      radial-gradient(closest-side at 18% 22%, color-mix(in oklab, var(--magenta) 70%, transparent), transparent 70%),
+      radial-gradient(closest-side at 80% 20%, color-mix(in oklab, var(--cyan) 55%, transparent), transparent 68%),
+      radial-gradient(closest-side at 50% 90%, color-mix(in oklab, var(--acid) 35%, transparent), transparent 70%),
+      var(--void); filter: url("#lsd"); animation: drift 22s ease-in-out infinite; }
+    @keyframes drift { 50% { transform: translate3d(-3%, 2%, 0) scale(1.05); } }
+    .kicker { font-family: Syne, sans-serif; letter-spacing: .16em; text-transform: uppercase; color: var(--cyan); font-size: 13px; }
+    .big { font-family: Syne, sans-serif; font-size: 48px; margin: 24px 0 0; text-shadow: -2px 0 var(--cyan), 2px 0 var(--magenta); }
+    .muted { color: var(--muted); }
+    .bar { height: 12px; background: var(--surface); border-radius: 999px; overflow: hidden; margin-top: 16px; }
+    .bar > span { display: block; height: 100%; background: var(--acid); }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+    .box { background: var(--surface); border-radius: 16px; padding: 12px; }
+    .box b { display: block; font-family: Syne, sans-serif; font-size: 20px; margin-top: 4px; }
+    .btn { width: 100%; min-height: 44px; margin-top: 16px; border: 0; border-radius: 999px; background: var(--acid); color: var(--void); font-weight: 600; }
+    .row { display: flex; gap: 8px; margin-top: 12px; }
+    input, select { min-height: 44px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 0 14px; }
+    .add { width: 44px; border: 0; border-radius: 999px; background: var(--magenta); color: var(--void); font-size: 22px; }
+    li { display: flex; justify-content: space-between; gap: 8px; align-items: center; border-bottom: 1px solid var(--line); min-height: 44px; list-style: none; }
+    ul { margin: 24px 0 0; padding: 0; }
+    .out { color: var(--magenta); } .in { color: var(--acid); }
+    .ghost { background: none; border: 0; color: var(--muted); min-width: 44px; min-height: 44px; }
+    details { margin-top: 28px; color: var(--muted); }
+    details form { display: grid; gap: 10px; margin-top: 12px; }
+    label { display: grid; gap: 4px; font-size: 14px; }
+    .save { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; }
+    .check { display: flex; align-items: center; gap: 8px; color: var(--ink); }
+    @media (prefers-reduced-motion: reduce) { .wash { animation: none; filter: none; } }
+  </style>
+</head>
+<body>
+  <div class="bg" aria-hidden="true">
+    <svg width="0" height="0"><filter id="lsd"><feTurbulence type="fractalNoise" baseFrequency="0.012 0.02" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="42"/></filter></svg>
+    <div class="wash"></div>
+  </div>
+  <main>
+    <p class="kicker">Prisma</p>
+    <section id="hero"></section>
+    <form class="row" id="spendForm">
+      <input id="spend" inputmode="decimal" placeholder="Gasto" aria-label="Valor do gasto" />
+      <select id="category" aria-label="Categoria"></select>
+      <button class="add" type="submit" aria-label="Registrar gasto">+</button>
+    </form>
+    <ul id="history"></ul>
+    <details>
+      <summary>Ajustar meta</summary>
+      <form id="settingsForm">
+        <label>Renda <input id="income" inputmode="decimal" required /></label>
+        <label>Meta <input id="goal" inputmode="decimal" required /></label>
+        <label>Prazo <input id="deadline" type="date" required /></label>
+        <label>Já reservado <input id="opening" inputmode="decimal" required /></label>
+        <label class="check"><input id="monthOn" type="checkbox" /> Salário deste mês ainda disponível</label>
+        <button class="save" type="submit">Salvar</button>
+      </form>
+    </details>
+  </main>
+  <script>
+    const KEY = "prisma-caixa-v1";
+    const CATS = ["Alimentação", "Moradia", "Transporte", "Contas", "Saúde", "Pessoal", "Lazer", "Outros"];
+    const defaults = { income: 1822, goal: 4000, deadline: "2027-01-31", opening: 0, monthSalaryAvailable: false, entries: [] };
+    let state = load();
+    const cat = document.getElementById("category");
+    cat.innerHTML = CATS.map((c) => `<option>${c}</option>`).join("");
+    function load() {
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (!raw) return structuredClone(defaults);
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed.income !== "number" || !Array.isArray(parsed.entries)) return structuredClone(defaults);
+        return { ...structuredClone(defaults), ...parsed };
+      } catch { return structuredClone(defaults); }
+    }
+    function persist() { localStorage.setItem(KEY, JSON.stringify(state)); }
+    function cents(n) { return Math.round(n * 100) / 100; }
+    function money(n) { return (Number.isFinite(n) ? n : 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }); }
+    function input(n) { return n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function num(raw, allowZero) {
+      const s = String(raw || "").trim().replace(/\s/g, "").replace(/\./g, "").replace(",", ".");
+      if (!s) return null;
+      const n = Number(s);
+      if (!Number.isFinite(n) || n < 0 || (!allowZero && n === 0)) return null;
+      return cents(n);
+    }
+    function iso(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+    function parseISO(s) { const [y, m, d] = s.split("-").map(Number); return new Date(y, (m || 1) - 1, d || 1); }
+    function monthKey(s) { return s.slice(0, 7); }
+    function plan(today) {
+      const reserved = state.opening + state.entries.filter((e) => e.type === "save").reduce((a, e) => a + e.amount, 0);
+      const gap = Math.max(0, cents(state.goal - reserved));
+      const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const end = parseISO(state.deadline);
+      const dayCount = end < start ? 0 : Math.round((end - start) / 86400000) + 1;
+      let salaries = end < start ? 0 : (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
+      if (!state.monthSalaryAvailable) salaries -= 1;
+      salaries = Math.max(0, salaries);
+      const reserve = salaries > 0 ? gap / salaries : gap;
+      const spend = state.income - reserve;
+      const month = monthKey(iso(today));
+      const monthSpent = state.entries.filter((e) => e.type === "out" && monthKey(e.date) === month).reduce((a, e) => a + e.amount, 0);
+      const monthSaved = state.entries.filter((e) => e.type === "save" && monthKey(e.date) === month).reduce((a, e) => a + e.amount, 0);
+      return { reserved: cents(reserved), gap, days: dayCount, reserve: cents(reserve), spend: cents(spend), pct: state.goal > 0 ? Math.min(100, reserved / state.goal * 100) : 0, monthSpent: cents(monthSpent), monthSaved };
+    }
+    function render() {
+      const today = new Date();
+      const t = plan(today);
+      const done = t.gap <= 0 || t.monthSaved + 0.001 >= t.reserve;
+      const over = t.monthSpent > Math.max(0, t.spend);
+      document.getElementById("hero").innerHTML = `
+        <p class="big">${money(t.reserved)}</p>
+        <p class="muted">de ${money(state.goal)} · faltam ${money(t.gap)}</p>
+        <div class="bar"><span style="width:${t.pct}%"></span></div>
+        <div class="pair">
+          <div class="box">Separar<b>${money(Math.max(0, t.reserve))}</b></div>
+          <div class="box">Pode gastar<b class="${over ? "out" : ""}">${money(Math.max(0, t.spend))}</b></div>
+        </div>
+        <p class="${over || t.spend < 0 ? "out" : "muted"}">${t.spend < 0 ? "A renda não cobre a meta." : "Gasto no mês: " + money(t.monthSpent) + (t.days ? " · " + t.days + " dias" : "")}</p>
+        <button class="btn" id="reserve" type="button" ${done || t.reserve <= 0 ? "disabled" : ""}>${done ? "Reserva deste salário feita" : "Separar " + money(t.reserve)}</button>`;
+      document.getElementById("reserve").onclick = () => {
+        state.entries.push({ id: Date.now(), type: "save", amount: t.reserve, date: iso(today), category: "Reserva da meta", note: "" });
+        persist(); render();
+      };
+      const rows = [...state.entries].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, 8);
+      document.getElementById("history").innerHTML = rows.map((e) => `<li><span>${e.category}</span><span><span class="${e.type === "out" ? "out" : "in"}">${e.type === "out" ? "−" : "+"}${money(e.amount)}</span> <button class="ghost" data-del="${e.id}" type="button" aria-label="Excluir">×</button></span></li>`).join("");
+    }
+    function sync() {
+      document.getElementById("income").value = input(state.income);
+      document.getElementById("goal").value = input(state.goal);
+      document.getElementById("deadline").value = state.deadline;
+      document.getElementById("opening").value = input(state.opening);
+      document.getElementById("monthOn").checked = !!state.monthSalaryAvailable;
+    }
+    document.getElementById("spendForm").onsubmit = (ev) => {
+      ev.preventDefault();
+      const amount = num(document.getElementById("spend").value, false);
+      if (amount == null) return;
+      state.entries.push({ id: Date.now(), type: "out", amount, date: iso(new Date()), category: cat.value, note: "" });
+      document.getElementById("spend").value = "";
+      persist(); render();
+    };
+    document.getElementById("history").onclick = (ev) => {
+      const id = Number(ev.target.getAttribute("data-del"));
+      if (!id) return;
+      state.entries = state.entries.filter((e) => e.id !== id);
+      persist(); render();
+    };
+    document.getElementById("settingsForm").onsubmit = (ev) => {
+      ev.preventDefault();
+      const income = num(document.getElementById("income").value, false);
+      const goal = num(document.getElementById("goal").value, false);
+      const opening = num(document.getElementById("opening").value, true);
+      if (income == null || goal == null || opening == null) return;
+      state.income = income;
+      state.goal = goal;
+      state.deadline = document.getElementById("deadline").value;
+      state.opening = opening;
+      state.monthSalaryAvailable = document.getElementById("monthOn").checked;
+      persist(); render();
+    };
+    sync(); render();
+  </script>
+</body>
+</html>
